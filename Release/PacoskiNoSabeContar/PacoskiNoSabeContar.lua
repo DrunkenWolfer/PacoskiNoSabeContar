@@ -1,5 +1,5 @@
 local ADDON_NAME = ...
-local ADDON_TITLE = "PacoskiNoSabeContar"
+local ADDON_TITLE = "|cFFAA151BPacoski|r |cFFF1BF00No Sabe|r |cFFAA151BContar|r"
 local DUNGEON_DIFFICULTY_MYTHIC_KEYSTONE = 8
 local MAX_NAMEPLATES = 40
 
@@ -7,19 +7,18 @@ local DEFAULTS = {
     enabled = true,
     showOnlyInMythicPlus = true,
     showRawValue = false,
-    anchorPoint = "RIGHT",
-    relativePoint = "RIGHT",
-    x = 34,
+    anchorPoint = "LEFT",
+    relativePoint = "LEFT",
+    x = -26,
     y = 0,
     fontSize = 14,
-    fontFlags = "OUTLINE",
+    fontFlags = "THICKOUTLINE",
     fontPath = STANDARD_TEXT_FONT,
     fontLabel = "Default",
-    textColor = { 1, 1, 1 },
+    textColor = { 0, 1, 0.3803921937942505 },
     targetColor = { 1, 1, 1, 1 },
-    otherColor = { 1, 1, 1, 0.75 },
-    hideInCombat = false,
-    debug = false,
+    otherColor = { 1, 1, 1, 1 },
+    hideInCombat = true,
 }
 
 local db
@@ -28,6 +27,7 @@ local storedTexts = {}
 local eventFrame = CreateFrame("Frame")
 local PARENT_TEXT_KEY = ADDON_NAME .. "Text"
 local optionsPanel
+local runtimeActive = false
 
 local function CopyDefaults(target, defaults)
     if type(target) ~= "table" then
@@ -75,15 +75,52 @@ local function ShouldShow()
         return false
     end
 
-    if db.debug == true then
-        return true
-    end
-
     if db.showOnlyInMythicPlus ~= true then
         return true
     end
 
     return IsMythicPlus()
+end
+
+local function RegisterRuntimeEvents()
+    eventFrame:RegisterEvent("SCENARIO_UPDATE")
+    eventFrame:RegisterEvent("SCENARIO_CRITERIA_UPDATE")
+    eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+    eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+end
+
+local function UnregisterRuntimeEvents()
+    eventFrame:UnregisterEvent("SCENARIO_UPDATE")
+    eventFrame:UnregisterEvent("SCENARIO_CRITERIA_UPDATE")
+    eventFrame:UnregisterEvent("NAME_PLATE_UNIT_ADDED")
+    eventFrame:UnregisterEvent("NAME_PLATE_UNIT_REMOVED")
+    eventFrame:UnregisterEvent("PLAYER_TARGET_CHANGED")
+end
+
+local function SetRuntimeActive(active)
+    if active and not runtimeActive then
+        runtimeActive = true
+        RegisterRuntimeEvents()
+        UpdateAllNameplates()
+        return
+    end
+
+    if (not active) and runtimeActive then
+        runtimeActive = false
+        UnregisterRuntimeEvents()
+        ReleaseAllTexts()
+    end
+end
+
+local function UpdateRuntimeActivation()
+    if not db or db.enabled ~= true then
+        SetRuntimeActive(false)
+        return
+    end
+
+    -- Debug options were removed. Active only inside Mythic Keystone.
+    SetRuntimeActive(IsMythicPlus())
 end
 
 local function GetEnemyForcesForUnit(unit)
@@ -200,7 +237,6 @@ local function UpdateUnit(unit)
     ReleaseText(unit)
 
     if not ShouldShow() then
-        PrintDebug("skip " .. tostring(unit) .. " (ShouldShow=false)")
         return
     end
 
@@ -351,64 +387,63 @@ local function BuildOptionsPanel()
     content:SetSize(1, 900)
     scrollFrame:SetScrollChild(content)
 
-    local title = CreateLabel(content, ADDON_TITLE, "GameFontNormalLarge")
+    local title = content:CreateFontString(nil, "ARTWORK")
+    title:SetFont(STANDARD_TEXT_FONT, 24, "OUTLINE")
+    title:SetShadowColor(0, 0, 0, 1)
+    title:SetShadowOffset(1, -1)
+    title:SetText(ADDON_TITLE)
     title:SetPoint("TOPLEFT", 16, -16)
-    local subtitle = CreateLabel(content, "Ajuste fino del texto en placas", "GameFontHighlightSmall")
+    local subtitle = CreateLabel(content, "Opciones del addon, que pa eso están Ramon...", "GameFontHighlightSmall")
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
 
-    local offsetX = CreateLabeledSlider(content, "Offset X", -200, 200, 1, 300)
-    offsetX:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 6, -36)
-    local offsetY = CreateLabeledSlider(content, "Offset Y", -200, 200, 1, 300)
+    local leftColX = 6
+    local rightColX = 340
+    local colTopY = -36
+
+    local offsetX = CreateLabeledSlider(content, "Offset X", -200, 200, 1, 230)
+    offsetX:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", leftColX, colTopY)
+    local offsetY = CreateLabeledSlider(content, "Offset Y", -200, 200, 1, 230)
     offsetY:SetPoint("TOPLEFT", offsetX, "BOTTOMLEFT", 0, -48)
-    local fontSize = CreateLabeledSlider(content, "Tamano de fuente", 6, 72, 1, 300)
+    local fontSize = CreateLabeledSlider(content, "Tamano de fuente", 6, 72, 1, 230)
     fontSize:SetPoint("TOPLEFT", offsetY, "BOTTOMLEFT", 0, -48)
-    local alpha = CreateLabeledSlider(content, "Alpha (otros)", 0, 1, 0.01, 300)
+    local alpha = CreateLabeledSlider(content, "Alpha (otros)", 0, 1, 0.01, 230)
     alpha:SetPoint("TOPLEFT", fontSize, "BOTTOMLEFT", 0, -48)
-    local targetAlpha = CreateLabeledSlider(content, "Alpha (target)", 0, 1, 0.01, 300)
+    local targetAlpha = CreateLabeledSlider(content, "Alpha (target)", 0, 1, 0.01, 230)
     targetAlpha:SetPoint("TOPLEFT", alpha, "BOTTOMLEFT", 0, -48)
 
     local hideCombatCheckbox = CreateFrame("CheckButton", ADDON_NAME .. "HideCombatCheck", content, "UICheckButtonTemplate")
-    hideCombatCheckbox:SetPoint("TOPLEFT", targetAlpha, "BOTTOMLEFT", -6, -36)
+    hideCombatCheckbox:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX - 4, colTopY + 8)
     local hideCombatText = _G[hideCombatCheckbox:GetName() .. "Text"]
     if hideCombatText then
         hideCombatText:SetText("Ocultar texto en mobs en combate")
     end
 
     local flagsLabel = CreateLabel(content, "Font Flags", "GameFontHighlight")
-    flagsLabel:SetPoint("TOPLEFT", hideCombatCheckbox, "BOTTOMLEFT", -6, -30)
+    flagsLabel:SetPoint("TOPLEFT", hideCombatCheckbox, "BOTTOMLEFT", 0, -22)
     local flagsDropDown = CreateFrame("Frame", ADDON_NAME .. "FontFlagsDropDown", content, "UIDropDownMenuTemplate")
-    flagsDropDown:SetPoint("TOPLEFT", flagsLabel, "BOTTOMLEFT", -14, -4)
+    flagsDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX - 14, colTopY - 58)
 
     local anchorLabel = CreateLabel(content, "Anclaje", "GameFontHighlight")
-    anchorLabel:SetPoint("TOPLEFT", flagsDropDown, "BOTTOMLEFT", 20, -24)
+    anchorLabel:SetPoint("TOPLEFT", flagsLabel, "BOTTOMLEFT", 0, -64)
     local anchorDropDown = CreateFrame("Frame", ADDON_NAME .. "AnchorDropDown", content, "UIDropDownMenuTemplate")
-    anchorDropDown:SetPoint("TOPLEFT", anchorLabel, "BOTTOMLEFT", -14, -4)
+    anchorDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX - 14, colTopY - 146)
 
     local fontLabel = CreateLabel(content, "Fuente", "GameFontHighlight")
-    fontLabel:SetPoint("TOPLEFT", anchorDropDown, "BOTTOMLEFT", 20, -24)
+    fontLabel:SetPoint("TOPLEFT", anchorLabel, "BOTTOMLEFT", 0, -64)
     local fontDropDown = CreateFrame("Frame", ADDON_NAME .. "FontDropDown", content, "UIDropDownMenuTemplate")
-    fontDropDown:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", -14, -4)
+    fontDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX - 14, colTopY - 234)
 
     local textColorLabel = CreateLabel(content, "Color de texto", "GameFontHighlight")
-    textColorLabel:SetPoint("TOPLEFT", fontDropDown, "BOTTOMLEFT", 20, -24)
+    textColorLabel:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", 0, -64)
     local textColorSwatch = CreateFrame("Button", ADDON_NAME .. "TextColorSwatch", content)
     textColorSwatch:SetSize(28, 28)
-    textColorSwatch:SetPoint("TOPLEFT", textColorLabel, "BOTTOMLEFT", 0, -6)
+    textColorSwatch:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX + 6, colTopY - 318)
     textColorSwatch.bg = textColorSwatch:CreateTexture(nil, "BACKGROUND")
     textColorSwatch.bg:SetAllPoints()
     textColorSwatch.bg:SetColorTexture(0, 0, 0, 1)
     textColorSwatch.fill = textColorSwatch:CreateTexture(nil, "ARTWORK")
     textColorSwatch.fill:SetPoint("TOPLEFT", 2, -2)
     textColorSwatch.fill:SetPoint("BOTTOMRIGHT", -2, 2)
-
-    local debugHeader = CreateLabel(content, "DEBUG", "GameFontNormal")
-    debugHeader:SetPoint("TOPLEFT", textColorSwatch, "BOTTOMLEFT", 0, -28)
-    local debugGeneralCheckbox = CreateFrame("CheckButton", ADDON_NAME .. "DebugGeneralCheck", content, "UICheckButtonTemplate")
-    debugGeneralCheckbox:SetPoint("TOPLEFT", debugHeader, "BOTTOMLEFT", -4, -8)
-    local debugGeneralText = _G[debugGeneralCheckbox:GetName() .. "Text"]
-    if debugGeneralText then
-        debugGeneralText:SetText("Debug general (/pnsc debug)")
-    end
 
     local flagOptions = {
         { text = "None", value = "" },
@@ -470,7 +505,6 @@ local function BuildOptionsPanel()
         targetAlpha:SetValue((db.targetColor and db.targetColor[4]) or DEFAULTS.targetColor[4])
         targetAlpha.ValueText:SetText(string.format("%.2f", (db.targetColor and db.targetColor[4]) or DEFAULTS.targetColor[4]))
         hideCombatCheckbox:SetChecked(db.hideInCombat == true)
-        debugGeneralCheckbox:SetChecked(db.debug == true)
 
         local selectedFlags = db.fontFlags or DEFAULTS.fontFlags
         for _, option in ipairs(flagOptions) do
@@ -526,16 +560,11 @@ local function BuildOptionsPanel()
         db.hideInCombat = self:GetChecked() == true
         UpdateAllNameplates()
     end)
-    debugGeneralCheckbox:SetScript("OnClick", function(self)
-        db.debug = self:GetChecked() == true
-        UpdateAllNameplates()
-    end)
-
     UIDropDownMenu_SetWidth(flagsDropDown, 200)
     UIDropDownMenu_Initialize(flagsDropDown, function(_, level)
         for _, option in ipairs(flagOptions) do
             local info = UIDropDownMenu_CreateInfo()
-            info.text = option.text
+            info.text = "    " .. option.text
             info.checked = (db.fontFlags or DEFAULTS.fontFlags) == option.value
             info.func = function()
                 db.fontFlags = option.value
@@ -550,7 +579,7 @@ local function BuildOptionsPanel()
     UIDropDownMenu_Initialize(anchorDropDown, function(_, level)
         for _, option in ipairs(anchorOptions) do
             local info = UIDropDownMenu_CreateInfo()
-            info.text = option.text
+            info.text = "    " .. option.text
             info.checked = (db.anchorPoint == option.anchor and db.relativePoint == option.relative)
             info.func = function()
                 db.anchorPoint = option.anchor
@@ -566,7 +595,7 @@ local function BuildOptionsPanel()
     UIDropDownMenu_Initialize(fontDropDown, function(_, level)
         for _, option in ipairs(fontOptions) do
             local info = UIDropDownMenu_CreateInfo()
-            info.text = option.text
+            info.text = "    " .. option.text
             info.checked = (db.fontPath or DEFAULTS.fontPath) == option.value
             info.func = function()
                 db.fontPath = option.value
@@ -643,18 +672,14 @@ SlashCmdList.PACOSKINOSABECONTAR = function(message)
     if command == "on" then
         db.enabled = true
         Print("enabled")
-        UpdateAllNameplates()
+        UpdateRuntimeActivation()
     elseif command == "off" then
         db.enabled = false
         Print("disabled")
-        ReleaseAllTexts()
+        UpdateRuntimeActivation()
     elseif command == "raw" then
         db.showRawValue = not db.showRawValue
         Print("raw value display " .. (db.showRawValue and "enabled" or "disabled"))
-        UpdateAllNameplates()
-    elseif command == "debug" then
-        db.debug = not db.debug
-        Print("debug " .. (db.debug and "enabled" or "disabled"))
         UpdateAllNameplates()
     elseif command == "nobw" then
         local disabled, reason = DisableBigWigsNameplateProgress()
@@ -712,20 +737,19 @@ SlashCmdList.PACOSKINOSABECONTAR = function(message)
         UpdateAllNameplates()
     elseif command == "status" then
         Print(string.format(
-            "offset x=%.1f y=%.1f | size=%d | flags=%s | alpha=%.2f | targetAlpha=%.2f | hideInCombat=%s | debug=%s",
+            "offset x=%.1f y=%.1f | size=%d | flags=%s | alpha=%.2f | targetAlpha=%.2f | hideInCombat=%s",
             db.x or DEFAULTS.x,
             db.y or DEFAULTS.y,
             db.fontSize or DEFAULTS.fontSize,
             (db.fontFlags == "" and "none" or tostring(db.fontFlags or DEFAULTS.fontFlags)),
             db.otherColor and db.otherColor[4] or DEFAULTS.otherColor[4],
             db.targetColor and db.targetColor[4] or DEFAULTS.targetColor[4],
-            (db.hideInCombat == true and "on" or "off"),
-            (db.debug == true and "on" or "off")
+            (db.hideInCombat == true and "on" or "off")
         ))
     elseif command == "options" then
         OpenOptionsPanel()
     else
-        Print("/pnsc on|off|raw|debug|nobw|status|options")
+        Print("/pnsc on|off|raw|nobw|status|options")
         Print("/pnsc offset <x> <y>")
         Print("/pnsc fontsize <size>")
         Print("/pnsc fontflags <none|outline|thickoutline|monochrome[,outline]>")
@@ -751,11 +775,6 @@ eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 eventFrame:RegisterEvent("CHALLENGE_MODE_START")
 eventFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
 eventFrame:RegisterEvent("CHALLENGE_MODE_RESET")
-eventFrame:RegisterEvent("SCENARIO_UPDATE")
-eventFrame:RegisterEvent("SCENARIO_CRITERIA_UPDATE")
-eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)
     if event == "ADDON_LOADED" then
@@ -763,12 +782,24 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         if loadedAddonName == ADDON_NAME then
             EnsureDatabase()
             BuildOptionsPanel()
+            UpdateRuntimeActivation()
         end
         return
     end
 
     if not db then
         EnsureDatabase()
+    end
+
+    if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+        UpdateRuntimeActivation()
+        return
+    end
+
+    if event == "CHALLENGE_MODE_START" then
+        SetRuntimeActive(true)
+        RefreshAfterDelay()
+        return
     end
 
     if event == "NAME_PLATE_UNIT_ADDED" then
@@ -780,6 +811,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "PLAYER_TARGET_CHANGED" then
         UpdateAllNameplates()
     elseif event == "CHALLENGE_MODE_COMPLETED" or event == "CHALLENGE_MODE_RESET" then
+        UpdateRuntimeActivation()
         ReleaseAllTexts()
     else
         RefreshAfterDelay()
