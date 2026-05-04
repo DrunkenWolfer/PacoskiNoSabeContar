@@ -3,7 +3,7 @@
 Addon: PacoskiNoSabeContar
 Objetivo:
 - Mostrar en las placas de nombre de Plater el porcentaje/valor de fuerzas enemigas que aporta cada mob en mazmorras miticas+.
-
+- /Count abre el menu.
 Archivos creados:
 - PacoskiNoSabeContar.toc
   - Interface: 120001, 120005.
