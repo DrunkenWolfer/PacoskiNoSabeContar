@@ -1,0 +1,8 @@
+## Interface: 120001, 120005
+## Title: PacoskiNoSabeContar
+## Notes: Shows Mythic+ enemy forces percentage on Plater nameplates.
+## Author: IggyDarr
+## OptionalDeps: Plater
+## SavedVariables: PacoskiNoSabeContarDB
+
+PacoskiNoSabeContar.lua
