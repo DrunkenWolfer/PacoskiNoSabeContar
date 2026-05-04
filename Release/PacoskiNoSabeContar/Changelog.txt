@@ -136,3 +136,12 @@ Retirada funcionalidad pull (2026-05-04):
 - Eliminado todo el debug relacionado a pull.
 - Eliminados comandos /pnsc pull y /pnsc pulldebug.
 - Eliminados controles de UI relacionados con pull.
+
+2026-05-04 - v1.0.1
+- Anadida linea de version en .toc.
+- Ajustes visuales del panel de opciones:
+  - Distribucion en dos columnas.
+  - Mejor alineacion de dropdowns.
+  - Separacion del texto en opciones de dropdown para evitar solape con checks.
+- Eliminado el checkbox de debug y el codigo de debug asociado.
+- Optimizado runtime para activar/desactivar eventos segun contexto de M+.
