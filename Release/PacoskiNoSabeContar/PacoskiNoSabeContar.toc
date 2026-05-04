@@ -2,7 +2,7 @@
 ## Title: PacoskiNoSabeContar
 ## Version: 1.0.1
 ## Notes: Shows Mythic+ enemy forces percentage on Plater nameplates.
-## Author: IggyDarr
+## Author: Pacopao
 ## OptionalDeps: Plater
 ## SavedVariables: PacoskiNoSabeContarDB
 
