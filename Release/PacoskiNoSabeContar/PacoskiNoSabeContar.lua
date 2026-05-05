@@ -19,6 +19,7 @@ local DEFAULTS = {
     targetColor = { 1, 1, 1, 1 },
     otherColor = { 1, 1, 1, 1 },
     hideInCombat = true,
+    testMode = false,
 }
 
 local db
@@ -75,11 +76,24 @@ local function ShouldShow()
         return false
     end
 
+    if db.testMode == true then
+        return true
+    end
+
     if db.showOnlyInMythicPlus ~= true then
         return true
     end
 
     return IsMythicPlus()
+end
+
+local function GetTestPercentForUnit(unit)
+    local idx = tonumber(string.match(tostring(unit or ""), "%d+")) or 1
+    local value = ((idx * 37) % 99 + 1) / 10
+    if value > 9.9 then
+        value = 9.9
+    end
+    return value
 end
 
 local function RegisterRuntimeEvents()
@@ -119,7 +133,11 @@ local function UpdateRuntimeActivation()
         return
     end
 
-    -- Debug options were removed. Active only inside Mythic Keystone.
+    if db.testMode == true then
+        SetRuntimeActive(true)
+        return
+    end
+
     SetRuntimeActive(IsMythicPlus())
 end
 
@@ -240,13 +258,18 @@ local function UpdateUnit(unit)
         return
     end
 
-    local value, percentString = GetEnemyForcesForUnit(unit)
-    if not percentString then
-        return
-    end
-
-    if not ShouldShowForUnit(unit) then
-        return
+    local value, percentString
+    if db.testMode == true then
+        value = GetTestPercentForUnit(unit)
+        percentString = string.format("%.1f", value)
+    else
+        value, percentString = GetEnemyForcesForUnit(unit)
+        if not percentString then
+            return
+        end
+        if not ShouldShowForUnit(unit) then
+            return
+        end
     end
 
     local plateFrame = GetPlateForUnit(unit)
@@ -399,6 +422,8 @@ local function BuildOptionsPanel()
     local leftColX = 6
     local rightColX = 340
     local colTopY = -36
+    local rightDropX = rightColX - 14
+    local rightLabelX = rightColX + 6
 
     local offsetX = CreateLabeledSlider(content, "Offset X", -200, 200, 1, 230)
     offsetX:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", leftColX, colTopY)
@@ -418,26 +443,33 @@ local function BuildOptionsPanel()
         hideCombatText:SetText("Ocultar texto en mobs en combate")
     end
 
+    local testModeCheckbox = CreateFrame("CheckButton", ADDON_NAME .. "TestModeCheck", content, "UICheckButtonTemplate")
+    testModeCheckbox:SetPoint("TOPLEFT", hideCombatCheckbox, "BOTTOMLEFT", 0, -10)
+    local testModeText = _G[testModeCheckbox:GetName() .. "Text"]
+    if testModeText then
+        testModeText:SetText("Modo Config")
+    end
+
     local flagsLabel = CreateLabel(content, "Font Flags", "GameFontHighlight")
-    flagsLabel:SetPoint("TOPLEFT", hideCombatCheckbox, "BOTTOMLEFT", 0, -22)
+    flagsLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightLabelX, colTopY - 68)
     local flagsDropDown = CreateFrame("Frame", ADDON_NAME .. "FontFlagsDropDown", content, "UIDropDownMenuTemplate")
-    flagsDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX - 14, colTopY - 58)
+    flagsDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightDropX, colTopY - 86)
 
     local anchorLabel = CreateLabel(content, "Anclaje", "GameFontHighlight")
-    anchorLabel:SetPoint("TOPLEFT", flagsLabel, "BOTTOMLEFT", 0, -64)
+    anchorLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightLabelX, colTopY - 130)
     local anchorDropDown = CreateFrame("Frame", ADDON_NAME .. "AnchorDropDown", content, "UIDropDownMenuTemplate")
-    anchorDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX - 14, colTopY - 146)
+    anchorDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightDropX, colTopY - 148)
 
     local fontLabel = CreateLabel(content, "Fuente", "GameFontHighlight")
-    fontLabel:SetPoint("TOPLEFT", anchorLabel, "BOTTOMLEFT", 0, -64)
+    fontLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightLabelX, colTopY - 192)
     local fontDropDown = CreateFrame("Frame", ADDON_NAME .. "FontDropDown", content, "UIDropDownMenuTemplate")
-    fontDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX - 14, colTopY - 234)
+    fontDropDown:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightDropX, colTopY - 210)
 
     local textColorLabel = CreateLabel(content, "Color de texto", "GameFontHighlight")
-    textColorLabel:SetPoint("TOPLEFT", fontLabel, "BOTTOMLEFT", 0, -64)
+    textColorLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightLabelX, colTopY - 254)
     local textColorSwatch = CreateFrame("Button", ADDON_NAME .. "TextColorSwatch", content)
     textColorSwatch:SetSize(28, 28)
-    textColorSwatch:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightColX + 6, colTopY - 318)
+    textColorSwatch:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", rightLabelX, colTopY - 276)
     textColorSwatch.bg = textColorSwatch:CreateTexture(nil, "BACKGROUND")
     textColorSwatch.bg:SetAllPoints()
     textColorSwatch.bg:SetColorTexture(0, 0, 0, 1)
@@ -505,6 +537,7 @@ local function BuildOptionsPanel()
         targetAlpha:SetValue((db.targetColor and db.targetColor[4]) or DEFAULTS.targetColor[4])
         targetAlpha.ValueText:SetText(string.format("%.2f", (db.targetColor and db.targetColor[4]) or DEFAULTS.targetColor[4]))
         hideCombatCheckbox:SetChecked(db.hideInCombat == true)
+        testModeCheckbox:SetChecked(db.testMode == true)
 
         local selectedFlags = db.fontFlags or DEFAULTS.fontFlags
         for _, option in ipairs(flagOptions) do
@@ -558,6 +591,10 @@ local function BuildOptionsPanel()
     end)
     hideCombatCheckbox:SetScript("OnClick", function(self)
         db.hideInCombat = self:GetChecked() == true
+        UpdateAllNameplates()
+    end)
+    testModeCheckbox:SetScript("OnClick", function(self)
+        db.testMode = self:GetChecked() == true
         UpdateAllNameplates()
     end)
     UIDropDownMenu_SetWidth(flagsDropDown, 200)
@@ -735,16 +772,21 @@ SlashCmdList.PACOSKINOSABECONTAR = function(message)
         db.targetColor[4] = Clamp(alpha, 0, 1)
         Print(string.format("target alpha set to %.2f", db.targetColor[4]))
         UpdateAllNameplates()
+    elseif command == "test" then
+        db.testMode = not db.testMode
+        Print("test mode " .. (db.testMode and "enabled" or "disabled"))
+        UpdateRuntimeActivation()
     elseif command == "status" then
         Print(string.format(
-            "offset x=%.1f y=%.1f | size=%d | flags=%s | alpha=%.2f | targetAlpha=%.2f | hideInCombat=%s",
+            "offset x=%.1f y=%.1f | size=%d | flags=%s | alpha=%.2f | targetAlpha=%.2f | hideInCombat=%s | testMode=%s",
             db.x or DEFAULTS.x,
             db.y or DEFAULTS.y,
             db.fontSize or DEFAULTS.fontSize,
             (db.fontFlags == "" and "none" or tostring(db.fontFlags or DEFAULTS.fontFlags)),
             db.otherColor and db.otherColor[4] or DEFAULTS.otherColor[4],
             db.targetColor and db.targetColor[4] or DEFAULTS.targetColor[4],
-            (db.hideInCombat == true and "on" or "off")
+            (db.hideInCombat == true and "on" or "off"),
+            (db.testMode == true and "on" or "off")
         ))
     elseif command == "options" then
         OpenOptionsPanel()
@@ -754,6 +796,7 @@ SlashCmdList.PACOSKINOSABECONTAR = function(message)
         Print("/pnsc fontsize <size>")
         Print("/pnsc fontflags <none|outline|thickoutline|monochrome[,outline]>")
         Print("/pnsc alpha <0-1> | /pnsc targetalpha <0-1>")
+        Print("/pnsc test")
         Print("/count -> abre opciones directas")
     end
 end
